@@ -1,0 +1,4 @@
+﻿  pch.cpp
+  ConsoleApplication5.cpp
+f:\cni_project1\project1\src\consoleapplication5\consoleapplication5\consoleapplication5.cpp(96): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  ConsoleApplication5.vcxproj -> F:\cni_project1\Project1\src\ConsoleApplication5\x64\Debug\ConsoleApplication5.exe
