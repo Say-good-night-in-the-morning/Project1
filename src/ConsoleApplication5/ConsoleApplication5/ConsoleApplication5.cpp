@@ -13,8 +13,10 @@ constexpr int FRAME_HEIGHT = 950;//定义帧高度
 constexpr int FRAME_WIDTH = 1600;//定义帧宽度
 constexpr int RECTSIZE = 150;//定义编码点尺寸
 constexpr int LOCATERECTSIZE = 200;//定义定位点尺寸
+constexpr int WHITEFRAMESRATE = 2;//关键帧的间隔，即此张关键帧到下一张关键帧的帧数（含此张关键帧）
 
-Size RSFRAME(1400, 750);
+Size FRAME(1600, 950);//视频尺寸
+Size RSFRAME(1400, 750);//修剪后的尺寸
 
 vector<Point>codePointLocation =
 {
@@ -31,12 +33,89 @@ Scalar BLACK = Scalar(0, 0, 0);//黑色
 Scalar WHITE = Scalar(255, 255, 255);//白色
 
 void codeInit(char);//编码帧生成
+void videoInit(void);
 
 int main()
 {
+	/*VideoCapture vid_in("vid_input.mp4");
+	int frames = vid_in.get(CAP_PROP_FRAME_COUNT);
+	Mat f;
+	for (int i = 0; i < frames; i++) {
+		vid_in.read(f);
+		string str = "img" + to_string(i);
+		imshow(str, f);
+		waitKey(1000);
+		destroyAllWindows();
+	}*/
+	videoInit();
+
+	return 0;
+}
+void videoInit(void) {
+	//测试用，从键盘输入要传输的字符，生成关键帧
+	char c;
+	while ((c = getchar()) != '\n') {
+		codeInit(c);
+	}
+
+	//----------------------------视频生成准备------------------------------//
+	int fourcc = VideoWriter::fourcc('D', 'I', 'V', 'X');//文件编码格式DIVX
+	VideoWriter vid_out("vid_output.mp4", fourcc, 24, FRAME, 1);//视频输出流
+	int frames = 0;//帧计数器
+	Mat t0 = imread("img0.jpg");//读入空白帧
+
+	//----------------------------视频写入-------------------------------//
+	while (1) {
+		if (frames % WHITEFRAMESRATE == 1) {//满足条件写入关键帧，关键帧读取完毕后停止循环，
+			string str = "img" + to_string((frames - 1) / WHITEFRAMESRATE + 1) + ".jpg";
+			Mat t1 = imread(str);
+			if (t1.empty())
+				break;
+			vid_out << t1;
+		}
+		vid_out << t0;
+	}
+	vid_out.release();//释放
+}
+
+void codeInit(char c) {
+	static int fs = 0;
+	//定义帧的高度，宽度，图片类型，底色
+	Mat frame = Mat(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC1, BLACK);
+
+	//辅助生成定位符
+	rectangle(frame, locatPointTopLeft, Point(locatPointTopLeft.x + LOCATERECTSIZE, locatPointTopLeft.y + LOCATERECTSIZE), WHITE, FILLED);
+	rectangle(frame, locatPointBottomRight, Point(locatPointBottomRight.x + LOCATERECTSIZE, locatPointBottomRight.y + LOCATERECTSIZE), WHITE, FILLED);
+	if (fs == 0) {
+		Mat frameL = Mat(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC1, BLACK);
+		rectangle(frameL, locatPointTopLeft, Point(locatPointTopLeft.x + LOCATERECTSIZE, locatPointTopLeft.y + LOCATERECTSIZE), WHITE, FILLED);
+		rectangle(frameL, locatPointBottomRight, Point(locatPointBottomRight.x + LOCATERECTSIZE, locatPointBottomRight.y + LOCATERECTSIZE), WHITE, FILLED);
+		imwrite("img0.jpg", frameL);
+		++fs;
+	}
+	//生成char c的编码帧
+	for (int i = 0; i < 8; i++) {
+		if (c & 0x01) {
+			rectangle(frame, codePointLocation[i], Point(codePointLocation[i].x + RECTSIZE, codePointLocation[i].y + RECTSIZE), WHITE, FILLED);
+		}
+		c >>= 1;
+	}
+	string name = "img" + to_string(fs) + ".jpg";
+	imwrite(name, frame);
+	++fs;
+//	根据帧尺寸和定位点位置输出遮罩
+//	vector<Mat> mask(8);
+//	for (int i = 0; i < 8; i++) {
+//		mask[i] = Mat(frame.size()-NEEDLESS-NEEDLESS,CV_8UC1,WHITE);
+//	rectangle(mask[i], codePointLocation[i] - locatPointTopLeft, Point(locatPointTopLeft.x + RECTSIZE - locatPointTopLeft.x, codePointLocation[i].y + RECTSIZE - locatPointTopLeft.y), BLACK, FILLED);
+//		string str = "img" + to_string(i) + ".jpg";
+//		imwrite(str, mask[i]);
+//	}
+}
+
+void encode(Mat src, Mat temp) {
+
 	//读入测试文件
-	Mat temp = imread("rr1.jpg");
-	Mat src = imread("rr0.jpg");
 
 	//-----------------------输入文件预处理-------------------------//
 	//彩色转灰度
@@ -94,26 +173,26 @@ int main()
 
 	//矩形轮廓x坐标整理
 	for (int i = poly_rect.size(); i > 0; i--) {
-		for (int j = 0; j < i-1; j++) {
+		for (int j = 0; j < i - 1; j++) {
 			if (poly_rect[j].tl().x > poly_rect[j + 1].tl().x)
 				swap(poly_rect[j], poly_rect[j + 1]);
 		}
 	}
 	//矩形轮廓y坐标整理
-	for (int i = 0; i+1 < poly_rect.size(); i += 2) {
+	for (int i = 0; i + 1 < poly_rect.size(); i += 2) {
 		if (poly_rect[i].tl().y > poly_rect[i + 1].tl().y)
 			swap(poly_rect[i], poly_rect[i + 1]);
 	}
 
-//坐标整理检查
-//	for (int i = 0; i < poly_rect.size(); i++) {
-//		cout << poly_rect[i].x << "  " << poly_rect[i].y << endl;
-//	}
+	//坐标整理检查
+	//	for (int i = 0; i < poly_rect.size(); i++) {
+	//		cout << poly_rect[i].x << "  " << poly_rect[i].y << endl;
+	//	}
 
-	//ROI坐标生成 tl=topleft,br=bottomright
+		//ROI坐标生成 tl=topleft,br=bottomright
 	int tl_x = poly_rect[0].tl().x;
 	int br_x = poly_rect[poly_rect.size() - 1].br().x;
-	int tl_y= poly_rect[0].tl().y;
+	int tl_y = poly_rect[0].tl().y;
 	int br_y = poly_rect[poly_rect.size() - 1].br().y;
 
 	//将提取出的矩形轮廓重新绘制
@@ -137,7 +216,7 @@ int main()
 
 	//解码
 	char c;
-	for (int i = 7; i >=0 ; i--) {
+	for (int i = 7; i >= 0; i--) {
 		//缓存帧
 		Mat p = Mat::zeros(RSFRAME, CV_8UC1);
 
@@ -149,38 +228,9 @@ int main()
 		morphologyEx(p, p, MORPH_OPEN, kernelroi);
 
 		//译码
-		if (countNonZero(p) ==0)
+		if (countNonZero(p) == 0)
 			c |= 0x01;
-		if(i!=0)
+		if (i != 0)
 			c <<= 1;
 	}
-
-	return 0;
 }
-
-void codeInit(char c) {
-	//定义帧的高度，宽度，图片类型，底色
-	Mat frame = Mat(FRAME_HEIGHT, FRAME_WIDTH, CV_8UC1, BLACK);
-
-	//生成char c的编码帧
-	for (int i = 0; i < 8; i++) {
-		if (c & 0x01 ) {
-			rectangle(frame, codePointLocation[i], Point(codePointLocation[i].x + RECTSIZE, codePointLocation[i].y + RECTSIZE), WHITE, FILLED);
-		}
-		c >>= 1;
-	}
-	
-	//辅助生成定位符
-	rectangle(frame, locatPointTopLeft, Point(locatPointTopLeft.x + LOCATERECTSIZE, locatPointTopLeft.y + LOCATERECTSIZE), WHITE, FILLED);
-	rectangle(frame, locatPointBottomRight, Point(locatPointBottomRight.x + LOCATERECTSIZE, locatPointBottomRight.y + LOCATERECTSIZE), WHITE, FILLED);
-
-//	根据帧尺寸和定位点位置输出遮罩
-//	vector<Mat> mask(8);
-//	for (int i = 0; i < 8; i++) {
-//		mask[i] = Mat(frame.size()-NEEDLESS-NEEDLESS,CV_8UC1,WHITE);
-//	rectangle(mask[i], codePointLocation[i] - locatPointTopLeft, Point(locatPointTopLeft.x + RECTSIZE - locatPointTopLeft.x, codePointLocation[i].y + RECTSIZE - locatPointTopLeft.y), BLACK, FILLED);
-//		string str = "img" + to_string(i) + ".jpg";
-//		imwrite(str, mask[i]);
-//	}
-}
-
