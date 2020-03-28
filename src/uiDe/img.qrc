@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/main">
+        <file>img/bg.jpg</file>
+        <file>img/返回.png</file>
+    </qresource>
+</RCC>
