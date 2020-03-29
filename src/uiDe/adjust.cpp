@@ -2,6 +2,39 @@
 #include "ui_adjust.h"
 #include "cvvariables.h"
 #include "metho.h"
+
+/*
+ * **************************************************************************
+ * ********************                                  ********************
+ * ********************   GROUP 11 ALL RIGHT RESERVED    ********************
+ * ********************                                  ********************
+ * **************************************************************************
+ *                                                                          *
+ *                                   _oo8oo_                                *
+ *                                  o8888888o                               *
+ *                                  88" . "88                               *
+ *                                  (| -_- |)                               *
+ *                                  0\  =  /0                               *
+ *                                ___/'==='\___                             *
+ *                              .' \\|     |// '.                           *
+ *                             / \\|||  :  |||// \                          *
+ *                            / _||||| -:- |||||_ \                         *
+ *                           |   | \\\  -  /// |   |                        *
+ *                           | \_|  ''\---/''  |_/ |                        *
+ *                           \  .-\__  '-'  __/-.  /                        *
+ *                         ___'. .'  /--.--\  '. .'___                      *
+ *                      ."" '<  '.___\_<|>_/___.'  >' "".                   *
+ *                     | | :  `- \`.:`\ _ /`:.`/ -`  : | |                  *
+ *                     \  \ `-.   \_ __\ /__ _/   .-` /  /                  *
+ *                 =====`-.____`.___ \_____/ ___.`____.-`=====              *
+ *                                   `=---=`                                *
+ * **************************************************************************
+ * ********************                                  ********************
+ * ********************      				             ********************
+ * ********************         佛祖保佑 永远无BUG         ********************
+ * ********************                                  ********************
+ * **************************************************************************
+*/
 int const cqw::test_perspective_size=251;
 adjust::adjust(QWidget *parent) :
     QWidget(parent),
@@ -16,7 +49,7 @@ adjust::adjust(QString path,QString path2, QWidget *parent):
     ui->progressBar->setValue(0);
     ui->labelStatus->setText("准备就绪");
     ui->textBrowser->setPlaceholderText("现在空空如也...");
-    connect(this,SIGNAL(decodeFin()),this,SLOT(decodeFinish()));
+    connect(this,SIGNAL(decodeFin()),this,SLOT(decodeFinish()),Qt::QueuedConnection);
     connect(this,SIGNAL(prvalue(int)),this,SLOT(prchange(int)));
     this->PATH=path;
     this->output=path2;
@@ -37,6 +70,7 @@ void adjust::Decode(std::vector<cv::Mat> page){
     static std::vector<std::vector<unsigned char>> pageone(88);
     if(page.size()<1||this->idle==true)
         return;
+
     for(int p=0;p<page.size();p++){
         vector<Point2f> localization_points(3), transformation_points;
 
@@ -77,28 +111,32 @@ void adjust::Decode(std::vector<cv::Mat> page){
         p1[3] = Point2f(0, cqw::QRCODESIZE * 30);
         Mat elementTransf;
 
-        if(transformation_points.size()!=4)
+        if(transformation_points.size()!=4){
+            static int errc=0;
+            qDebug()<<"ERROR:image illegal "<<p;
+            imwrite("bin"+std::to_string(errc)+".jpg",bin);
+            errc++;
             continue;
+        }
         elementTransf = getPerspectiveTransform(transformation_points, p1);
         warpPerspective(bin, binbar, elementTransf, Size(cqw::QRCODESIZE * 30, cqw::QRCODESIZE * 30),INTERSECT_FULL);
         threshold(binbar, binbar, 200, 255, THRESH_OTSU);
         cqw::samplingForVersion(binbar, straight);
         static int lastpage=0;
         int pagecount=0;
-        for(int row1=27;row1>=20;row1--){
+        for(int row1=43;row1>=20;row1--){
             pagecount<<=1;
             if(straight.ptr<uint8_t>(row1)[4]==255)
                 pagecount|=0x01;
         }
-        qDebug()<<"head"<<complete;
-        qDebug()<<pagecount<<"pagecount";
-        qDebug()<<lastpage<<"lastpage";
-
+        imwrite("Straight.jpg",straight);
+        qDebug()<<"[head "<<complete<<"] ["<<pagecount<<" pagecount] ["<<lastpage<<" lastpage]";
         if(lastpage==pagecount&&complete==true)
             return;
         if(pagecount-lastpage>1){
             if(complete==false){
                 this->text.insert(text.end(),pageone.begin(),pageone.end());
+                qDebug()<<"page read finish "<<pagecount;
                 ipp++;
                 qDebug()<<"ipp>1"<<ipp;
                 lastpage++;
@@ -109,10 +147,11 @@ void adjust::Decode(std::vector<cv::Mat> page){
             }
             for(;lastpage<pagecount-1;lastpage++){
                 this->text.insert(text.end(),pageone.begin(),pageone.end());
+                qDebug()<<"page read finish "<<pagecount;
                 ipp++;
                 qDebug()<<"ipp>=1"<<ipp;
-                complete=true;
             }
+            complete=true;
         }
 //        if(pagecount-lastpage==1&&complete==false){
 //            this->text.insert(text.end(),pageone.begin(),pageone.end());
@@ -129,6 +168,7 @@ void adjust::Decode(std::vector<cv::Mat> page){
             ipp++;
             qDebug()<<"ippde"<<ipp;
             this->text.insert(text.end(),pageone.begin(),pageone.end());
+            qDebug()<<"page read suceess "<<pagecount;
 
             pageone.clear();
             for(int t=0;t<88;t++){
@@ -142,13 +182,14 @@ void adjust::Decode(std::vector<cv::Mat> page){
             complete=false;
         }
     }
-    qDebug()<<complete;
+    qDebug()<<"[tail "<<complete<<"]";
 }
 void adjust::prchange(int j){
     ui->progressBar->setValue(j*100/similar.size());
 }
 
 void adjust::Write(){
+//    this->ui->labelError->setText("1");
     FILE* fr,*fv;
     char* pathC;
     QString s=this->output+"/out.bin";
@@ -159,27 +200,32 @@ void adjust::Write(){
     QByteArray pq=val.toLatin1();
     char* pc=pq.data();
 
+//    this->ui->labelError->setText("2");
+    qDebug()<<"write";
     fopen_s(&fr,pathC,"wb");
+    qDebug()<<"first file open success";
     fopen_s(&fv,pc,"wb");
+    qDebug()<<"second file open success";
     int cerror=0;
+    bool start=false;
     for(int i=0;i<this->text.size();i++){
         cerror=0;
         unsigned char Buff;
         for(int j=0;j<10;j++){
-
-            if(text[i][j]==0)
-                cerror++;
             if(j>=text[i].size()){
                 Buff=0;
-                fwrite(&Buff,sizeof(unsigned char),1,fr);
             }
             else{
+                if(text[i][j]!=0)
+                    start=true;
+                if(text[i][j]==0)
+                    cerror++;
                 Buff=text[i][j];
-                fwrite(&Buff,sizeof(unsigned char),1,fr);
             }
+            fwrite(&Buff,sizeof(unsigned char),1,fr);
         }
 
-        if(cerror==10){
+        if(cerror==10&&start){
             Buff=0;
         }
         else{
@@ -189,40 +235,32 @@ void adjust::Write(){
             fwrite(&Buff,sizeof(unsigned char),1,fv);
         }
     }
+    qDebug()<<"write success";
     fclose(fr);
     fclose(fv);
 }
 void adjust::decodeFinish(void){
     ui->progressBar->setValue(100);
     ui->labelStatus->setText("解码完成！");
-//    string s(text.begin(),text.end());
-//    QString qs=QString::fromStdString(s);
-//    ui->textBrowser->insertPlainText(qs);
     Write();
     qDebug()<<"receive: "<<text.size()*10;
     int cerror=0;
+    bool start=false;
     for(int i=0;i<text.size();i++){
         cerror=0;
-        string si=std::to_string(i);
-        QString qsi=QString::fromStdString(si);
-        ui->textBrowser->insertPlainText(qsi);
         for(int j=0;j<text[i].size();j++){
+            if(text[i][j]!=0)
+                start=true;
             if(text[i][j]==0)
                 cerror++;
-            ui->textBrowser->insertPlainText(" ");
-            char buff[2];
-            sprintf(buff,"%02x",text[i][j]);
-            QString qs(buff);
-            ui->textBrowser->insertPlainText(qs);
         }
-        if(cerror==10){
+        if(cerror==10&&start==true){
             this->counterror+=10;
         }
-        ui->textBrowser->insertPlainText("\n");
     }
     qDebug()<<counterror;
-    char error[20];
-    sprintf(error,"error:%d",counterror);
+    char error[30];
+    sprintf(error,"error count:%d",counterror);
     this->ui->labelError->setText(QString(error));
     ui->pushButton->setText("返回");
     ui->pushButton->setEnabled(true);
@@ -241,6 +279,7 @@ void adjust::on_btnDecode_pressed()
             Decode(similar[i]);
             emit prvalue(i);
         }
+        qDebug()<<"complete decode";
         emit decodeFin();
     });
 }
