@@ -42,6 +42,7 @@ private slots:
 
     void prchange(int);
     void encodeFinish();
+    void on_lineEditTime_editingFinished();
 
 signals:
     void prvalue(int);
@@ -60,6 +61,7 @@ private:
     std::vector<cv::Mat> videoFrame;
 
     cv::VideoWriter vid_out;
+    int time;
 
 };
 

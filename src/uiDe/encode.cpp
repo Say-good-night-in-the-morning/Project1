@@ -11,7 +11,8 @@ cv::Scalar WHITE=cv::Scalar(255,255,255);
 
 Encode::Encode(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::Encode)
+    ui(new Ui::Encode),
+    time(0)
 {
     ui->setupUi(this);
     setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
@@ -158,7 +159,8 @@ void Encode::QRcodeInit(){
     LocationPoint(preMat);
     int idle = 0;
     qDebug()<<fileReadin.size();
-    for (int page = 0; page < cvCeil(fileReadin.size()*1.0 /(880)); page++) {
+    int pagenum=time*8;
+    for (int page = 0; page<pagenum&&page < cvCeil(fileReadin.size()*1.0 /(880)); page++) {
         char c = 0;
         cv::Mat Page = preMat.clone();
         int lastiter=iter;
@@ -209,7 +211,7 @@ void Encode::QRcodeInit(){
             }
         }
         int sc=page;
-        for(int heal=0;heal<8;heal++){
+        for(int heal=0;heal<24;heal++){
             int temp=sc&0x01;
             if(temp==0){
                 for(int ccc=1;ccc<5;ccc++)
@@ -235,4 +237,9 @@ void Encode::encodeFinish(){
     ui->labelEncodeWarning->setText("转码成功！！！");
     ui->probarEncode->setValue(100);
     ui->btnEncodeCancel->setText("返回");
+}
+
+void Encode::on_lineEditTime_editingFinished()
+{
+    this->time=this->ui->lineEditTime->text().toInt();
 }

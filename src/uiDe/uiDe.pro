@@ -29,7 +29,7 @@ SOURCES += \
         decode.cpp \
         decodemethod.cpp \
         encode.cpp \
-        error.cpp \
+        log.cpp \
         main.cpp \
         mainwindow.cpp
 
@@ -39,7 +39,7 @@ HEADERS += \
         cvvariables.h \
         decode.h \
         encode.h \
-        error.h \
+        log.h \
         mainwindow.h \
         metho.h
 
