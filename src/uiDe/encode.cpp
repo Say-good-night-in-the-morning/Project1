@@ -209,7 +209,7 @@ void Encode::QRcodeInit(){
             }
         }
         int sc=page;
-        for(int heal=0;heal<8;heal++){
+        for(int heal=0;heal<24;heal++){
             int temp=sc&0x01;
             if(temp==0){
                 for(int ccc=1;ccc<5;ccc++)
